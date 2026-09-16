@@ -3,15 +3,24 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const quotesFilePath = path.join(__dirname, 'data', 'quotes.json');
+
+function getQuotesFilePath() {
+  const isVercel = !!process.env.VERCEL;
+  if (isVercel) {
+    return path.join(os.tmpdir(), 'quotes.json');
+  }
+  return path.join(__dirname, 'data', 'quotes.json');
+}
 
 app.use(cors());
 app.use(express.json());
 
 function ensureQuotesFile() {
+  const quotesFilePath = getQuotesFilePath();
   const dirPath = path.dirname(quotesFilePath);
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
@@ -24,6 +33,7 @@ function ensureQuotesFile() {
 
 function readQuotes() {
   ensureQuotesFile();
+  const quotesFilePath = getQuotesFilePath();
   const raw = fs.readFileSync(quotesFilePath, 'utf8');
   try {
     return JSON.parse(raw);
@@ -34,6 +44,7 @@ function readQuotes() {
 
 function saveQuotes(quotes) {
   ensureQuotesFile();
+  const quotesFilePath = getQuotesFilePath();
   fs.writeFileSync(quotesFilePath, JSON.stringify(quotes, null, 2), 'utf8');
 }
 
@@ -101,6 +112,10 @@ app.post('/api/contact', (req, res) => {
 
 ensureQuotesFile();
 
-app.listen(PORT, () => {
-  console.log(`Backend running on http://localhost:${PORT}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Backend running on http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;
